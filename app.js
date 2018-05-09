@@ -10,7 +10,7 @@ const JWT_ALGORITHM = process.env.JWT_ALGORITHM
 const JWT_SECRET = process.env.JWT_SECRET
 
 async function getAuth0 () {
-  const { data: { access_token, token_type } } = await axios.post('https://screepsplus.auth0.com/oauth/token', {
+  const { data: { access_token: accessToken, token_type: tokenType } } = await axios.post('https://screepsplus.auth0.com/oauth/token', {
     client_id: AUTH0_CLIENT_ID,
     client_secret: AUTH0_CLIENT_SECRET,
     audience: 'https://screepsplus.auth0.com/api/v2/',
@@ -19,7 +19,7 @@ async function getAuth0 () {
   return axios.create({
     baseURL: 'https://screepsplus.auth0.com',
     headers: {
-      Authorization: `${token_type} ${access_token}`
+      Authorization: `${tokenType} ${accessToken}`
     }
   })
 }
@@ -64,15 +64,20 @@ const templates = [{
   isDefault: true
 }]
 
+const isAdmin = {}
+
 async function datasourceLoop (grafana) {
   const { data: orgs } = await grafana.get('/api/orgs')
   for (const {id, name} of orgs) {
-    try {
-      await grafana.post(`/api/orgs/${id}/users`, {
-        loginOrEmail: GRAFANA_USERNAME,
-        role: 'Admin'
-      })
-    } catch (e) {}
+    if (!isAdmin[id]) {
+      try {
+        await grafana.post(`/api/orgs/${id}/users`, {
+          loginOrEmail: GRAFANA_USERNAME,
+          role: 'Admin'
+        })
+        isAdmin[id] = true
+      } catch (e) {}
+    }
     await grafana.post(`/api/user/using/${id}`)
     const { data: datasources } = await grafana.get('/api/datasources')
     for (const ds of templates) {
@@ -103,6 +108,7 @@ async function userSyncLoop (auth0, grafana) {
   if (!needsUpdated.length) return
   console.log(`Updating ${needsUpdated.length} users`)
   for (const { id, email } of needsUpdated) {
+    console.log(`Attempting to update user ${email}`)
     try {
       const { data: [user] } = await auth0.get('/api/v2/users', {
         params: {
