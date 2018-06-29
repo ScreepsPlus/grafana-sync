@@ -104,15 +104,15 @@ async function datasourceLoop (grafana) {
 async function userSyncLoop (auth0, grafana) {
   const { data: users } = await grafana.get('/api/users').catch(e => console.error('grafana', e.message))
   const { data: orgs } = await grafana.get('/api/orgs').catch(e => console.error('grafana', e.message))
-  const needsUpdated = users.filter(u => u.email === u.login)
+  const needsUpdated = users.filter(u => !u.email || !u.email.includes('@') || u.email === u.login)
   if (!needsUpdated.length) return
   console.log(`Updating ${needsUpdated.length} users`)
-  for (const { id, email } of needsUpdated) {
+  for (const { id, email, login } of needsUpdated) {
     console.log(`Attempting to update user ${email}`)
     try {
       const { data: [user] } = await auth0.get('/api/v2/users', {
         params: {
-          q: `email:"${email}"`
+          q: email && email.includes('@') ? `email:"${email}"` : `nickname:"${login}"`
         }
       }).catch(e => console.error('auth0', e.message))
       if (user) {
@@ -122,7 +122,8 @@ async function userSyncLoop (auth0, grafana) {
         }
         await grafana.put(`/api/users/${id}`, {
           name: user.username || user.name,
-          login: user.username
+          login: user.username,
+          email: user.email
         }).catch(e => console.error('grafana', e.message))
       }
     } catch (e) {
