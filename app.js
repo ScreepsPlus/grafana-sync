@@ -114,9 +114,6 @@ async function userSyncLoop (auth0, grafana) {
         params: {
           q: email && email.includes('@') ? `email:"${email}"` : `username:"${login}"`
         }
-      }).catch(e => {
-        console.error('auth0', e.message)
-        if (e.response.status === 429) throw e
       })
       if (user) {
         const { id: orgid } = orgs.find(o => o.name === email) || {}
@@ -130,9 +127,9 @@ async function userSyncLoop (auth0, grafana) {
         }).catch(e => console.error('grafana', e.message))
       }
     } catch (e) {
-      if (e.response.status === 429) {
+      await sleep(1000)
+      if (e.response.status == 429) {
         console.log('Auth0 RateLimited')
-        await sleep(1000)
       } else {
         throw e
       }
