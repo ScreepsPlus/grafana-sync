@@ -41,7 +41,7 @@ async function run () {
     try {
       await userSyncLoop(auth0, grafana)
     } catch (e) {
-      if (e.code === 401) {
+      if (e.response.status === 401) {
         auth0 = await getAuth0()
       } else {
         throw e
@@ -116,7 +116,7 @@ async function userSyncLoop (auth0, grafana) {
         }
       }).catch(e => {
         console.error('auth0', e.message)
-        if (e.code === 429) throw e
+        if (e.response.status === 429) throw e
       })
       if (user) {
         const { id: orgid } = orgs.find(o => o.name === email) || {}
@@ -130,7 +130,7 @@ async function userSyncLoop (auth0, grafana) {
         }).catch(e => console.error('grafana', e.message))
       }
     } catch (e) {
-      if (e.code === 429) {
+      if (e.response.status === 429) {
         console.log('Auth0 RateLimited')
         await sleep(1000)
       } else {
