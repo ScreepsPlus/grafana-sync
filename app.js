@@ -108,13 +108,16 @@ async function userSyncLoop (auth0, grafana) {
   if (!needsUpdated.length) return
   console.log(`Updating ${needsUpdated.length} users`)
   for (const { id, email, login } of needsUpdated) {
-    console.log(`Attempting to update user ${email}`)
+    console.log(`Attempting to update user with email:${email} username:${login} by ${email.includes('@') ? 'email' : 'username'}`)
     try {
       const { data: [user] } = await auth0.get('/api/v2/users', {
         params: {
-          q: email && email.includes('@') ? `email:"${email}"` : `nickname:"${login}"`
+          q: email && email.includes('@') ? `email:"${email}"` : `username:"${login}"`
         }
-      }).catch(e => console.error('auth0', e.message))
+      }).catch(e => {
+        console.error('auth0', e.message)
+        if (e.code === 429) throw e
+      })
       if (user) {
         const { id: orgid } = orgs.find(o => o.name === email) || {}
         if (orgid) {
